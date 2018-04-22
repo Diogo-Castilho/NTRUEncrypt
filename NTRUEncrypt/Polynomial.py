@@ -23,9 +23,6 @@ class Polynomial:
         for i in range(0, self.coefs.size):
             self.coefs[i] = self.coefs[i] % modulus
             
-
-    def invert_poly(self, modulus):
-        return self
     
     def add(self, other, modulus): # FIXME
         add_coefs = []
@@ -35,6 +32,6 @@ class Polynomial:
     
     def __cmp__(self, other):
         for i in range(0, self.coefs.size):
-            if (self.coefs[i] != other.coefs[i]):
+            if self.coefs[i] != other.coefs[i]:
                 return -1
         return 0
