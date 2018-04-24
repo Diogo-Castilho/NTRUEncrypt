@@ -8,7 +8,7 @@ class Polynomial:
         size = len(self.coefs)
         mult_coefs = size * [0]
         for i in range(size):
-            for j in range(size):
+            for j in range(len(other.coefs)):
                 mult_coefs[(i + j) % size] += (self.coefs[i] * other.coefs[j])
         return Polynomial(mult_coefs)
     
@@ -26,7 +26,7 @@ class Polynomial:
     
     def __sub__(self, other):
         sub_coefs = []
-        for i in range (len(self.coefs)):
+        for i in range(len(self.coefs)):
             sub_coefs.append(self.coefs[i] - other.coefs[i])
         return Polynomial(sub_coefs)
 
@@ -35,16 +35,21 @@ class Polynomial:
             self.coefs[i] = self.coefs[i] % modulus
 
     def degree(self):
-        for i in range(len(self.coefs), 0, -1):
+        for i in range(len(self.coefs) - 1, -1, -1):
             if self.coefs[i] != 0:
                 return i
-
-    def division(self, other):
-        quotient = []
+            
+    def __floordiv__(self, other):
+        quotient = Polynomial([0] * len(self.coefs))
         remainder = Polynomial(self.coefs[:])
-        end = [0] * self.coefs.size
+        end = Polynomial([0] * len(self.coefs))
         while remainder != end and remainder.degree() >= other.degree():
-            temp = remainder[remainder.degree()] / other[other.degree()]
-            quotient += temp
-            remainder -= temp * other
-        return [quotient, remainder]
+            coefs = [0] * len(self.coefs)
+            temp = remainder.coefs[remainder.degree()] // \
+                   other.coefs[other.degree()]
+            coefs[remainder.degree() - other.degree()] = temp
+            poly = Polynomial(coefs)
+            quotient += poly
+            poly = poly * other
+            remainder = remainder - poly
+        return quotient

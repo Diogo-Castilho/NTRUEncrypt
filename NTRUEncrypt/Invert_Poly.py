@@ -14,10 +14,14 @@ def extendedGCD(poly_a: Polynomial, poly_b: Polynomial):
     s.extend((1, 0))
     t.extend((0, 1))
     
-    end = [0] * poly_a.coefs.size
+    end = [0] * len(poly_a.coefs)
     round = 1
     while [round] != end:
-        quotient = r[round].divide(r[round - 1])
+        print(round)
+        print(r[round - 1].coefs)
+        print(r[round].coefs)
+        quotient = r[round] // (r[round - 1])
+        print(quotient.coefs)
         r.append(r[round - 1] - quotient * r[round])
         s.append(s[round - 1] - quotient * s[round])
         t.append(t[round - 1] - quotient * t[round])
