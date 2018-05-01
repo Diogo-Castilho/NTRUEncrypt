@@ -1,13 +1,39 @@
-import sys
 from sage.all import *
-
 
 class NTRU:
     
-    def __init__(self):
-        self.N = 503
-        self.q = 256
-        self.p = 3
+    def __init__(self, level):
+        if level == 0:
+            self.N = 11
+            self.q = 32
+            self.p = 3
+        else:
+            self.N = 503
+            self.q = 256
+            self.p = 3
+    
+    def create_keys(self):
+        self.R=PolynomialRing(QQ, 'x')
+        x=self.R.gen()
+        gcd = 0
+        while gcd != 1:
+            self.f= ZZ[x].random_element(degree=self.N - 1)
+            extended_gcd = xgcd(self.f, x**self.N -1)
+            gcd = extended_gcd[0]
+            u = extended_gcd[1]
+            v = extended_gcd[2]
+            self.fp = self.mod(v, self.p)
+            self.fq = self.mod(v, self.q)
+            
+            
+            
+            
+    def mod(self, poly, num):
+        coefs = poly.list()
+        for i in range(len(coefs)):
+            coefs[i] = Mod(coefs[i], num)
+        return self.R(coefs)
+    
     
     def encode(message):
         bit_list = []
