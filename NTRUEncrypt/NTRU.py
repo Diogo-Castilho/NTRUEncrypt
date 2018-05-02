@@ -11,23 +11,71 @@ class NTRU:
             self.N = 503
             self.q = 256
             self.p = 3
+        
+    def generate_random_pol(self, lower, upper, N):
+        coefs = []
+        for i in range(N):
+            coefs.append(int(random() * (upper - lower + 1)) + lower)
+        return self.R(coefs)
     
     def create_keys(self):
-        self.R=PolynomialRing(QQ, 'x')
-        x=self.R.gen()
+        self.R = PolynomialRing(QQ, 'x')
+        x = self.R.gen()
         gcd = 0
         while gcd != 1:
-            self.f= ZZ[x].random_element(degree=self.N - 1)
+            self.f = self.generate_random_pol(-1,1, self.N)
+            print(self.f)
+            self.g = self.generate_random_pol(-1,1, self.N)
             extended_gcd = xgcd(self.f, x**self.N -1)
             gcd = extended_gcd[0]
             u = extended_gcd[1]
             v = extended_gcd[2]
-            self.fp = self.mod(v, self.p)
-            self.fq = self.mod(v, self.q)
+        print("found f")
+        print(gcd)
+        print(v)
+        print(self.p)
+        self.fp = self.mod(v, self.p)
+        print("this is fp")
+        print(self.fp)
+        print(self.q)
+        self.fq = self.mod(v, self.q)
+        self.h = self.mod(self.mul(self.p * self.fq, self.g),self.q)
             
+
+    def test(self):
+        self.R = PolynomialRing(QQ, 'x')
+        x = self.R.gen()
+        poly_a = -1 + x + x**2 - x**4 + x**6 + x**9 -x**10
+        poly_b = -1 + x**2 + x**3 + x**5 - x**8 - x**10
+        print(poly_a)
+        temp = x**11 -1
+        extended_gcd = xgcd(temp, poly_a)
+        gcd = extended_gcd[0]
+        print(gcd)
+        u = extended_gcd[1]
+        print(u)
+        v = extended_gcd[2]
+        print(v)
+        fp = self.mod(v, 3)
+        fq = self.mod(v, 32)
+        h = self.mod(self.mul(3 * fq, poly_b), 32)
+        result = [fp, fq, h]
+        return result
+    
+    def cipher(self, message, h):
+        random_pol = self.generate_random_pol(-5,5, self.N)
+        message_poly = self.encode(message)
+        secret =  self.mod(self.mul(random_pol, h) + message_poly, self.q) #add reduce
+        return secret
+    
+    
+    def decipher(self, secret):
+        b = self.mod(secret, self.p)
+        c = self.mul(self.fp, b)
+        c = self.mod(c, self.p)
+        return c
             
-            
-            
+    
     def mod(self, poly, num):
         coefs = poly.list()
         for i in range(len(coefs)):
@@ -35,7 +83,18 @@ class NTRU:
         return self.R(coefs)
     
     
-    def encode(message):
+    def mul(self, poly_a, poly_b):
+        coefs_a = poly_a.list()
+        coefs_b = poly_b.list()
+        size = len(coefs_a)
+        mult_coefs = size * [0]
+        for i in range(size):
+            for j in range(len(coefs_b)):
+                mult_coefs[(i + j) % size] += (coefs_a[i] * coefs_b[j])
+        return self.R(mult_coefs)
+    
+    
+    def encode(self, message):
         bit_list = []
         for char in message:
             bits = bin(ord(char))[2:]
@@ -46,7 +105,7 @@ class NTRU:
         filler = 0
         temp_list = bit_list + [filler] * 3
         grouped_list = [temp_list[n:n + 3] for n in range(0, len(bit_list), 3)]
-        return grouped_list
+        return self.R(grouped_list)
     
     def decode(grouped_list):
         bit_list = []
