@@ -7,6 +7,17 @@ class NTRU:
             self.N = 11
             self.q = 32
             self.p = 3
+        elif level == "test":
+            self.N = 11
+            self.q = 32
+            self.p = 3
+            self.R = PolynomialRing(QQ, 'x')
+            x = self.R.gen()
+            mock = self.test()
+            self.f = -1 + x + x**2 - x**4 + x**6 + x**9 -x**10
+            self.fp = mock[0]
+            self.fq = mock[1]
+            self.h =mock[2]
         else:
             self.N = 503
             self.q = 256
@@ -64,24 +75,32 @@ class NTRU:
     
     def cipher(self, message, h):
         random_pol = self.generate_random_pol(-5,5, self.N)
-        message_poly = self.encode(message)
-        secret =  self.mod(self.mul(random_pol, h) + message_poly, self.q) #add reduce
+        message_poly = self.mapping(self.encode(message))
+        secret = self.mod(self.mul(random_pol, h) + message_poly, self.q) #add reduce
         return secret
     
-    
     def decipher(self, secret):
-        b = self.mod(secret, self.p)
+        print(secret)
+        a = self.recenter(secret, self.q)
+        print(a)
+        b = self.recenter(a, self.p)
+        print(b)
         c = self.mul(self.fp, b)
-        c = self.mod(c, self.p)
+        print(c)
+        c = self.recenter(c, self.p)
         return c
-            
-    
+        
     def mod(self, poly, num):
         coefs = poly.list()
         for i in range(len(coefs)):
             coefs[i] = Mod(coefs[i], num)
         return self.R(coefs)
     
+    def recenter(self, poly, num):
+        coefs = poly.list()
+        for i in range(len(coefs)):
+            coefs[i] = num - Mod(coefs[i], num)
+        return self.R(coefs)
     
     def mul(self, poly_a, poly_b):
         coefs_a = poly_a.list()
@@ -105,7 +124,7 @@ class NTRU:
         filler = 0
         temp_list = bit_list + [filler] * 3
         grouped_list = [temp_list[n:n + 3] for n in range(0, len(bit_list), 3)]
-        return self.R(grouped_list)
+        return grouped_list
     
     def decode(grouped_list):
         bit_list = []
@@ -121,7 +140,7 @@ class NTRU:
             message += chr(int(''.join([str(bit) for bit in byte]), 2))
         return message
     
-    def mapping(bits_list):
+    def mapping(self, bits_list):
         co_list = []
         for bits in bits_list:
             if bits == [0, 0, 0]:
