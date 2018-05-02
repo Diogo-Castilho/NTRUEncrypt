@@ -17,7 +17,8 @@ class NTRU:
             self.f = -1 + x + x**2 - x**4 + x**6 + x**9 -x**10
             self.fp = mock[0]
             self.fq = mock[1]
-            self.h =mock[2]
+            self.h = mock[2]
+            self.g = -1 + x**2 + x**3 + x**5 - x**8 - x**10
         else:
             self.N = 503
             self.q = 256
@@ -50,38 +51,44 @@ class NTRU:
         print(self.fp)
         print(self.q)
         self.fq = self.mod(v, self.q)
-        self.h = self.mod(self.mul(self.p * self.fq, self.g),self.q)
-            
-
+        self.h = self.recenter(self.mul(self.p * self.fq, self.g),self.q)
+        
     def test(self):
         self.R = PolynomialRing(QQ, 'x')
         x = self.R.gen()
         poly_a = -1 + x + x**2 - x**4 + x**6 + x**9 -x**10
         poly_b = -1 + x**2 + x**3 + x**5 - x**8 - x**10
-        print(poly_a)
         temp = x**11 -1
         extended_gcd = xgcd(temp, poly_a)
         gcd = extended_gcd[0]
-        print(gcd)
         u = extended_gcd[1]
-        print(u)
         v = extended_gcd[2]
-        print(v)
         fp = self.mod(v, 3)
         fq = self.mod(v, 32)
-        h = self.mod(self.mul(3 * fq, poly_b), 32)
+        yetanother = 3 *fq
+        print(yetanother)
+        why = self.mul(yetanother, poly_b)
+        print(why)
+        h = self.recenter(why, 32)
         result = [fp, fq, h]
         return result
     
     def cipher(self, message, h):
-        random_pol = self.generate_random_pol(-5,5, self.N)
-        message_poly = self.mapping(self.encode(message))
-        secret = self.mod(self.mul(random_pol, h) + message_poly, self.q) #add reduce
+        # random_pol = self.generate_random_pol(-5,5, self.N)
+        x = self.R.gen()
+        random_pol = -1 + x**2 + x**3 + x**4 - x**5 - x**7
+        #message_poly = self.mapping(self.encode(message))
+        message_poly = -1 + x**3 - x**4 - x**8 + x**9 + x**10
+        print("message_poly")
+        print(message_poly)
+        temp = self.mul(h, random_pol)
+        print(temp)
+        secret = self.mod(temp + message_poly, self.q)
         return secret
     
     def decipher(self, secret):
         print(secret)
-        a = self.recenter(secret, self.q)
+        a = self.recenter(self.mul(secret, self.f), self.q)
         print(a)
         b = self.recenter(a, self.p)
         print(b)
@@ -98,18 +105,20 @@ class NTRU:
     
     def recenter(self, poly, num):
         coefs = poly.list()
+        limit = num//2
         for i in range(len(coefs)):
-            coefs[i] = num - Mod(coefs[i], num)
+            coefs[i] = Mod(coefs[i], num)
+            if coefs[i] > limit:
+                coefs[i] = int(coefs[i]) - num
         return self.R(coefs)
     
-    def mul(self, poly_a, poly_b):
+    def mul(self, poly_a, poly_b): #FIXME
         coefs_a = poly_a.list()
         coefs_b = poly_b.list()
-        size = len(coefs_a)
-        mult_coefs = size * [0]
-        for i in range(size):
+        mult_coefs = self.N * [0]
+        for i in range(len(coefs_a)):
             for j in range(len(coefs_b)):
-                mult_coefs[(i + j) % size] += (coefs_a[i] * coefs_b[j])
+                mult_coefs[(i + j) % self.N] += (coefs_a[i] * coefs_b[j])
         return self.R(mult_coefs)
     
     
@@ -144,22 +153,23 @@ class NTRU:
         co_list = []
         for bits in bits_list:
             if bits == [0, 0, 0]:
-                co_list.append([0, 0])
+                co_list.extend((0, 0))
             elif bits == [0, 0, 1]:
-                co_list.append([0, 1])
+                co_list.extend((0, 1))
             elif bits == [0, 1, 0]:
-                co_list.append([0, -1])
+                co_list.extend((0, -1))
             elif bits == [0, 1, 1]:
-                co_list.append([1, 0])
+                co_list.extend((1, 0))
             elif bits == [1, 0, 0]:
-                co_list.append([1, 1])
+                co_list.extend((1, 1))
             elif bits == [1, 0, 1]:
-                co_list.append([1, -1])
+                co_list.extend((1, -1))
             elif bits == [1, 1, 0]:
-                co_list.append([-1, 0])
+                co_list.extend((-1, 0))
             elif bits == [1, 1, 1]:
-                co_list.append([-1, 1])
-        return co_list
+                co_list.extend((-1, 1))
+        print(co_list)
+        return self.R(co_list)
     
     def inverse_mapping(co_list):
         bit_list = []
