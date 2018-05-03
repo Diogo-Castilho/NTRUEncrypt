@@ -1,4 +1,5 @@
 from sage.all import *
+import random
 
 class NTRU:
     
@@ -7,22 +8,26 @@ class NTRU:
             self.N = 11
             self.q = 32
             self.p = 3
-        elif level == "test":
-            self.N = 11
-            self.q = 32
+        elif level == 1:
+            self.N = 167
+            self.q = 128
             self.p = 3
-            self.R = PolynomialRing(ZZ, 'x')
-            x = self.R.gen()
-            mock = self.test()
-            self.f = -1 + x + x**2 - x**4 + x**6 + x**9 -x**10
-            self.fp = mock[0]
-            self.fq = mock[1]
-            self.h = mock[2]
-            self.g = -1 + x**2 + x**3 + x**5 - x**8 - x**10
+            self.df = 30
+            self.dg = 23
+        elif level == 2:
+            self.N = 251
+            self.q = 128
+            self.p = 3
+        elif level == 3:
+            self.N = 347
+            self.q = 128
+            self.p = 3
         else:
             self.N = 503
             self.q = 256
             self.p = 3
+            self.df = 60
+            self.dg = 30
         
     def generate_random_pol(self, lower, upper, N):
         coefs = []
@@ -30,13 +35,24 @@ class NTRU:
             coefs.append(int(random() * (upper - lower + 1)) + lower)
         return self.R(coefs)
     
+    def generate_random(self, lower, upper):
+        lower_array = [-1] * lower
+        upper_array = [1] * upper
+        zero_array = [0] * (self.N - (lower + upper))
+        poly = lower_array + upper_array + zero_array
+        random.shuffle(poly)
+        return self.R(poly)
+        
+    
     def create_keys(self):
-        self.R = PolynomialRing(ZZ, 'x')
+        self.R = PolynomialRing(QQ, 'x')
         x = self.R.gen()
         gcd = 0
         while gcd != 1:
-            self.f = self.generate_random_pol(-1,1, self.N)
-            self.g = self.generate_random_pol(-1,1, self.N)
+            self.f = self.generate_random(self.df - 1, self.df)
+            print(self.f)
+            self.g = self.generate_random(self.dg, self.dg)
+            print(self.g)
             extended_gcd = xgcd(x**self.N -1, self.f)
             gcd = extended_gcd[0]
             u = extended_gcd[1]
@@ -67,7 +83,7 @@ class NTRU:
         return result
     
     def cipher(self, message, h):
-        random_pol = self.generate_random_pol(-1,1, self.N)
+        random_pol = self.generate_random(10,10)
         #random_pol = -1 + x**2 + x**3 + x**4 - x**5 - x**7
         message_poly = self.mapping(self.encode(message))
         #message_poly = -1 + x**3 - x**4 - x**8 + x**9 + x**10
@@ -79,19 +95,20 @@ class NTRU:
     
     def new_cipher(self, message, h):
         x = self.R.gen()
-        random_pol = self.generate_random_pol(-1, 1, self.N)
+        random_pol = self.generate_random(10,10)
         message_poly = self.mapping(self.encode(message))
         secret = h * random_pol
-        secret = secret % (x^self.N - 1)
-        secret = self.recenter(secret, self.q)
+        secret = secret % (x**self.N - 1)
+        secret = self.mod(secret + message_poly, self.q)
         return secret
     
     def new_decipher(self, secret):
         x = self.R.gen()
-        a = self.recenter((secret * self.f) % (x ^ self.N - 1), self.q)
+        a = self.recenter((secret * self.f) % (x ** self.N - 1), self.q)
         b = self.recenter(a, self.p)
-        c = self.recenter((self.fp * b) % (x ^ self.N - 1), self.p)
-
+        c = self.recenter((self.fp * b) % (x ** self.N - 1), self.p)
+        message = self.decode(self.inverse_mapping(self.group(c.list())))
+        return message
 
     def decipher(self, secret):
         print(secret)
