@@ -36,20 +36,14 @@ class NTRU:
         gcd = 0
         while gcd != 1:
             self.f = self.generate_random_pol(-1,1, self.N)
+            #self.f = -1 + x + x**2 - x**4 + x**6 + x**9 -x**10
             print(self.f)
             self.g = self.generate_random_pol(-1,1, self.N)
-            extended_gcd = xgcd(self.f, x**self.N -1)
+            extended_gcd = xgcd(x**self.N -1, self.f)
             gcd = extended_gcd[0]
             u = extended_gcd[1]
             v = extended_gcd[2]
-        print("found f")
-        print(gcd)
-        print(v)
-        print(self.p)
         self.fp = self.mod(v, self.p)
-        print("this is fp")
-        print(self.fp)
-        print(self.q)
         self.fq = self.mod(v, self.q)
         self.h = self.recenter(self.mul(self.p * self.fq, self.g),self.q)
         
@@ -74,15 +68,14 @@ class NTRU:
         return result
     
     def cipher(self, message, h):
-        # random_pol = self.generate_random_pol(-5,5, self.N)
         x = self.R.gen()
-        random_pol = -1 + x**2 + x**3 + x**4 - x**5 - x**7
-        #message_poly = self.mapping(self.encode(message))
-        message_poly = -1 + x**3 - x**4 - x**8 + x**9 + x**10
+        random_pol = self.generate_random_pol(-1,1, self.N)
+        #random_pol = -1 + x**2 + x**3 + x**4 - x**5 - x**7
+        message_poly = self.mapping(self.encode(message))
+        #message_poly = -1 + x**3 - x**4 - x**8 + x**9 + x**10
         print("message_poly")
         print(message_poly)
         temp = self.mul(h, random_pol)
-        print(temp)
         secret = self.mod(temp + message_poly, self.q)
         return secret
     
@@ -171,7 +164,7 @@ class NTRU:
         print(co_list)
         return self.R(co_list)
     
-    def inverse_mapping(co_list):
+    def inverse_mapping(self, co_list):
         bit_list = []
         for co in co_list:
             if co == [0, 0]:
@@ -191,5 +184,12 @@ class NTRU:
             elif co == [-1, 1]:
                 bit_list.append([1, 1, 1])
         return bit_list
+    
+    def group(self, list):
+        co_list = []
+        for i in range(len(0, list, 2)):
+            co_list.append([list[i], list[i + 1]])
+        return co_list
+        
     
     # def decipher(message):
