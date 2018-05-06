@@ -22,6 +22,42 @@ class NTRU:
             self.N = 347
             self.q = 128
             self.p = 3
+        elif level == 4:
+            self.N = 401
+            self.q = 2048
+            self.p = 3
+            self.d1 = 8
+            self.d2 = 8
+            self.d3 = 6
+            self.dg = 133
+            self.dm = 101
+        elif level == 5:
+            self.N = 439
+            self.q = 2048
+            self.p = 3
+            self.d1 = 9
+            self.d2 = 8
+            self.d3 = 5
+            self.dg = 156
+            self.dm = 112
+        elif level == 6:
+            self.N = 593
+            self.q = 2048
+            self.p = 3
+            self.d1 = 10
+            self.d2 = 10
+            self.d3 = 8
+            self.dg = 197
+            self.dm = 158
+        elif level == 5:
+            self.N = 439
+            self.q = 2048
+            self.p = 3
+            self.d1 = 11
+            self.d2 = 11
+            self.d3 = 15
+            self.dg = 147
+            self.dm = 204
         else:
             self.N = 503
             self.q = 256
@@ -61,6 +97,28 @@ class NTRU:
         self.fp = self.mod(v, self.p)
         self.fq = self.mod(v, self.q)
         self.h = self.recenter(self.mul(self.p * self.fq, self.g),self.q)
+        
+    def new_create_keys(self):
+        self.R = PolynomialRing(QQ, 'x')
+        x = self.R.gen()
+        gcd = 0
+        while gcd != 1:
+            self.f1 = self.generate_random(0, self.d1)
+            self.f2 = self.generate_random(0, self.d2)
+            self.f3 = self.generate_random(0, self.d3)
+            self.f = 1 + (2 * (self.f1 * self.f2 + self.f3))
+            self.f = self.f % (x**self.N - 1)
+            print(self.f)
+            self.g = self.generate_random(self.dg, self.dg)
+            print(self.g)
+            extended_gcd = xgcd(x**self.N -1, self.f)
+            gcd = extended_gcd[0]
+            u = extended_gcd[1]
+            v = extended_gcd[2]
+        self.fp = self.mod(v, self.p)
+        self.fq = self.mod(v, self.q)
+        self.h = self.recenter(self.mul(self.p * self.fq, self.g), self.q)
+        
         
     def test(self):
         self.R = PolynomialRing(ZZ, 'x')
