@@ -5,24 +5,6 @@ class NTRU:
     
     def __init__(self, level):
         if level == 0:
-            self.N = 11
-            self.q = 32
-            self.p = 3
-        elif level == 1:
-            self.N = 167
-            self.q = 128
-            self.p = 3
-            self.df = 30
-            self.dg = 23
-        elif level == 2:
-            self.N = 251
-            self.q = 128
-            self.p = 3
-        elif level == 3:
-            self.N = 347
-            self.q = 128
-            self.p = 3
-        elif level == 4:
             self.N = 401
             self.q = 2048
             self.p = 3
@@ -31,16 +13,16 @@ class NTRU:
             self.d3 = 6
             self.dg = 133
             self.dm = 101
-        elif level == 5:
+        elif level == 1:
             self.N = 439
             self.q = 2048
             self.p = 3
             self.d1 = 9
             self.d2 = 8
             self.d3 = 5
-            self.dg = 156
+            self.dg = 146
             self.dm = 112
-        elif level == 6:
+        elif level == 2:
             self.N = 593
             self.q = 2048
             self.p = 3
@@ -49,21 +31,15 @@ class NTRU:
             self.d3 = 8
             self.dg = 197
             self.dm = 158
-        elif level == 5:
-            self.N = 439
+        elif level == 3:
+            self.N = 743
             self.q = 2048
             self.p = 3
             self.d1 = 11
             self.d2 = 11
             self.d3 = 15
-            self.dg = 147
+            self.dg = 247
             self.dm = 204
-        else:
-            self.N = 503
-            self.q = 256
-            self.p = 3
-            self.df = 60
-            self.dg = 30
         
     def generate_random_pol(self, lower, upper, N):
         coefs = []
@@ -106,54 +82,25 @@ class NTRU:
             self.f1 = self.generate_random(0, self.d1)
             self.f2 = self.generate_random(0, self.d2)
             self.f3 = self.generate_random(0, self.d3)
-            self.f = 1 + (2 * (self.f1 * self.f2 + self.f3))
-            self.f = self.f % (x**self.N - 1)
+            self.f = 1 + ((2 + x)* (((self.f1 * self.f2) % (x**self.N - 1)) + self.f3))
+            #self.f = self.recenter(self.f, 3)
             print(self.f)
             self.g = self.generate_random(self.dg, self.dg)
-            print(self.g)
             extended_gcd = xgcd(x**self.N -1, self.f)
             gcd = extended_gcd[0]
+            print(gcd)
             u = extended_gcd[1]
             v = extended_gcd[2]
+        print("I am zie v")
+        print(v)
         self.fp = self.mod(v, self.p)
         self.fq = self.mod(v, self.q)
         self.h = self.recenter(self.mul(self.p * self.fq, self.g), self.q)
         
-        
-    def test(self):
-        self.R = PolynomialRing(ZZ, 'x')
-        x = self.R.gen()
-        poly_a = -1 + x + x**2 - x**4 + x**6 + x**9 -x**10
-        poly_b = -1 + x**2 + x**3 + x**5 - x**8 - x**10
-        temp = x**11 -1
-        extended_gcd = xgcd(temp, poly_a)
-        gcd = extended_gcd[0]
-        u = extended_gcd[1]
-        v = extended_gcd[2]
-        fp = self.mod(v, 3)
-        fq = self.mod(v, 32)
-        yetanother = 3 *fq
-        print(yetanother)
-        why = self.mul(yetanother, poly_b)
-        print(why)
-        h = self.recenter(why, 32)
-        result = [fp, fq, h]
-        return result
-    
-    def cipher(self, message, h):
-        random_pol = self.generate_random(10,10)
-        #random_pol = -1 + x**2 + x**3 + x**4 - x**5 - x**7
-        message_poly = self.mapping(self.encode(message))
-        #message_poly = -1 + x**3 - x**4 - x**8 + x**9 + x**10
-        print("message_poly")
-        print(message_poly)
-        temp = self.mul(h, random_pol)
-        secret = self.mod(temp + message_poly, self.q)
-        return secret
     
     def new_cipher(self, message, h):
         x = self.R.gen()
-        random_pol = self.generate_random(10,10)
+        random_pol = self.generate_random(self.dm, self.dm)
         message_poly = self.mapping(self.encode(message))
         secret = h * random_pol
         secret = secret % (x**self.N - 1)
@@ -168,21 +115,11 @@ class NTRU:
         message = self.decode(self.inverse_mapping(self.group(c.list())))
         return message
 
-    def decipher(self, secret):
-        print(secret)
-        a = self.recenter(self.mul(secret, self.f), self.q)
-        print(a)
-        b = self.recenter(a, self.p)
-        print(b)
-        c = self.mul(self.fp, b)
-        print(c)
-        c = self.recenter(c, self.p)
-        message = self.decode(self.inverse_mapping(self.group(c.list())))
-        return message
         
     def mod(self, poly, num):
         coefs = poly.list()
         for i in range(len(coefs)):
+            print(coefs[i])
             coefs[i] = Mod(coefs[i], num)
         return self.R(coefs)
     
