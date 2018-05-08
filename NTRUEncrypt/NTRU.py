@@ -1,13 +1,13 @@
 from sage.all import *
 import random
-
+from hashlib import sha256
 class NTRU:
     
     def __init__(self, level):
+        self.q = 2048
+        self.p = 3
         if level == 0:
             self.N = 401
-            self.q = 2048
-            self.p = 3
             self.d1 = 8
             self.d2 = 8
             self.d3 = 6
@@ -15,8 +15,6 @@ class NTRU:
             self.dm = 101
         elif level == 1:
             self.N = 439
-            self.q = 2048
-            self.p = 3
             self.d1 = 9
             self.d2 = 8
             self.d3 = 5
@@ -24,8 +22,6 @@ class NTRU:
             self.dm = 112
         elif level == 2:
             self.N = 593
-            self.q = 2048
-            self.p = 3
             self.d1 = 10
             self.d2 = 10
             self.d3 = 8
@@ -33,8 +29,6 @@ class NTRU:
             self.dm = 158
         elif level == 3:
             self.N = 743
-            self.q = 2048
-            self.p = 3
             self.d1 = 11
             self.d2 = 11
             self.d3 = 15
@@ -54,6 +48,14 @@ class NTRU:
         poly = lower_array + upper_array + zero_array
         random.shuffle(poly)
         return self.R(poly)
+    
+    def generate_random_n(self, lower, upper, n):
+        lower_array = [-1] * lower
+        upper_array = [1] * upper
+        zero_array = [0] * (n - (lower + upper))
+        poly = lower_array + upper_array + zero_array
+        random.shuffle(poly)
+        return self.R(poly)
         
     
     def create_keys(self):
@@ -69,7 +71,6 @@ class NTRU:
             gcd = extended_gcd[0]
             u = extended_gcd[1]
             v = extended_gcd[2]
-            print(gcd)
         self.fp = self.mod(v, self.p)
         self.fq = self.mod(v, self.q)
         self.h = self.recenter(self.mul(self.p * self.fq, self.g),self.q)
@@ -79,47 +80,75 @@ class NTRU:
         x = self.R.gen()
         gcd = 0
         while gcd != 1:
-            self.f1 = self.generate_random(0, self.d1)
-            self.f2 = self.generate_random(0, self.d2)
-            self.f3 = self.generate_random(0, self.d3)
-            self.f = 1 + ((2 + x)* (((self.f1 * self.f2) % (x**self.N - 1)) + self.f3))
-            #self.f = self.recenter(self.f, 3)
-            print(self.f)
-            self.g = self.generate_random(self.dg, self.dg)
+            self.f1 = self.generate_random(self.d1, self.d1)
+            self.f2 = self.generate_random(self.d2, self.d2)
+            self.f3 = self.generate_random(self.d3, self.d3)
+            self.f = 1 + ((3)* (((self.f1 * self.f2) % (x**self.N - 1)) + self.f3))
+            self.g = self.generate_random(self.dg, self.dg + 1)
             extended_gcd = xgcd(x**self.N -1, self.f)
             gcd = extended_gcd[0]
-            print(gcd)
-            u = extended_gcd[1]
             v = extended_gcd[2]
-        print("I am zie v")
-        print(v)
         self.fp = self.mod(v, self.p)
         self.fq = self.mod(v, self.q)
-        self.h = self.recenter(self.mul(self.p * self.fq, self.g), self.q)
+        self.h = self.recenter((self.p * self.fq * self.g) % (x**self.N - 1), self.q)
+    
+    def mgf(self, r):
+        binary = self.inverse_mapping(self.group(r.list))
         
+    
+    def cipher(self, message, h):
+        x = self.R.gen()
+        octL = len(message)
+        b = self.generate_random_n(octL//3, octL//3, octL)
+        m = self.mapping(self.encode(message))
+        m_prime =  (m * b) % (x**self.N - 1)
+        r_prime = ((m_prime * b) % (x**self.N - 1)) + h
+        r = ((self.p * r_prime) * h) % (x**self.N - 1)
+        mask = mgf(r)
+        m = self.mod(m_prime + mask, p)
+        secret = r + m
+        return secret
+    
+    
+    
+    
+    def decipher(self, secret):
+        m = secret * f
+        
+        
+    
     
     def new_cipher(self, message, h):
         x = self.R.gen()
-        random_pol = self.generate_random(self.dm, self.dm)
+        random_pol = self.generate_random(self.dm - 1, self.dm)
         message_poly = self.mapping(self.encode(message))
         secret = h * random_pol
         secret = secret % (x**self.N - 1)
         secret = self.mod(secret + message_poly, self.q)
         return secret
     
+    def count(self, message, number):
+        counter = 0
+        m_list = message.list()
+        for i in range(len(m_list)):
+            if number == m_list[i]:
+                counter += 1
+                print("here")
+        return counter
+    
     def new_decipher(self, secret):
         x = self.R.gen()
         a = self.recenter((secret * self.f) % (x ** self.N - 1), self.q)
         b = self.recenter(a, self.p)
-        c = self.recenter((self.fp * b) % (x ** self.N - 1), self.p)
-        message = self.decode(self.inverse_mapping(self.group(c.list())))
+        #c = self.recenter((self.fp * b) % (x ** self.N - 1), self.p)
+        message = self.decode(self.inverse_mapping(self.group(b.list())))
         return message
 
+        
         
     def mod(self, poly, num):
         coefs = poly.list()
         for i in range(len(coefs)):
-            print(coefs[i])
             coefs[i] = Mod(coefs[i], num)
         return self.R(coefs)
     
@@ -132,24 +161,12 @@ class NTRU:
                 coefs[i] = int(coefs[i]) - num
         return self.R(coefs)
     
-    def mul(self, poly_a, poly_b):
-        coefs_a = poly_a.list()
-        coefs_b = poly_b.list()
-        mult_coefs = self.N * [0]
-        for i in range(len(coefs_a)):
-            for j in range(len(coefs_b)):
-                mult_coefs[(i + j) % self.N] += (coefs_a[i] * coefs_b[j])
-        return self.R(mult_coefs)
-    
-    
     def encode(self, message):
         bit_list = []
         for char in message:
             bits = bin(ord(char))[2:]
             bits = '00000000'[len(bits):] + bits
             bit_list.extend([int(bit) for bit in bits])
-        print("bit_array:")
-        print(bit_list)
         filler = 0
         temp_list = bit_list + [filler] * 3
         grouped_list = [temp_list[n:n + 3] for n in range(0, len(bit_list), 3)]
@@ -188,7 +205,6 @@ class NTRU:
                 co_list.extend((-1, 0))
             elif bits == [1, 1, 1]:
                 co_list.extend((-1, 1))
-        print(co_list)
         return self.R(co_list)
     
     def inverse_mapping(self, co_list):
@@ -212,11 +228,8 @@ class NTRU:
                 bit_list.append([1, 1, 1])
         return bit_list
     
-    def group(self, list):
+    def group(self, ungrouped):
         co_list = []
-        for i in range(0, len(list), 2):
-            co_list.append([list[i], list[i + 1]])
+        for i in range(0, len(ungrouped), 2):
+            co_list.append([ungrouped[i], ungrouped[i + 1]])
         return co_list
-        
-    
-    # def decipher(message):
