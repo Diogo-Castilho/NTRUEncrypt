@@ -104,8 +104,10 @@ class NTRU:
         counter = 0
         poly_coefs = []
         while counter < self.N:
-            poly_coefs.append(hash[counter])
-        
+            poly_coefs.append(ord(hash[counter % len(hash)]))
+            counter += 1
+        print(poly_coefs)
+        return self.R(poly_coefs)
         
         
     
@@ -116,17 +118,27 @@ class NTRU:
         m_prime =  (m * b) % (x**self.N - 1)
         r_prime = ((m_prime * b) % (x**self.N - 1)) + h
         r = ((self.p * r_prime) * h) % (x**self.N - 1)
-        r_string = self.decode(self.inverse_mapping(self.group(r.list())))
-        mask = self.mgf(r_string)
-        m = self.mod(m_prime + mask, p)
-        secret = r + m
+        r_list = r.list()
+        r_list.append(0)
+        print(len(r_list))
+        r_string = self.decode(self.inverse_mapping(self.group(r_list)))
+        mask = self.mgf(r_string, 20)
+        m = self.mod(m_prime + mask, self.p)
+        #secret = self.mod(r + m, self.q)
+        secret = self.mod(r + m, self.q)
         return secret
     
     
     
     
     def decipher(self, secret):
-        m = secret * f
+        m = self.mod(secret * self.f, self.p)
+        r = secret - m
+        r_list = r.list()
+        r_list.append(0)
+        r_string = self.decode(self.inverse_mapping(self.group(r_list)))
+        mask = self.mgf(r_string, 20)
+        m_prime = m - mask
         
         
     
