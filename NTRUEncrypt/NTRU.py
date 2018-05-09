@@ -1,6 +1,9 @@
 from sage.all import *
 import random
+import os
 from hashlib import sha256
+
+
 class NTRU:
     
     def __init__(self, level):
@@ -92,19 +95,29 @@ class NTRU:
         self.fq = self.mod(v, self.q)
         self.h = self.recenter((self.p * self.fq * self.g) % (x**self.N - 1), self.q)
     
-    def mgf(self, r):
-        binary = self.inverse_mapping(self.group(r.list))
+    def mgf(self, r_string, iterations):
+        counter = 0
+        hash = r_string
+        while counter < iterations:
+            hash = sha256(hash.encode('ascii')).hexdigest()
+            counter += 1
+        counter = 0
+        poly_coefs = []
+        while counter < self.N:
+            poly_coefs.append(hash[counter])
+        
+        
         
     
     def cipher(self, message, h):
         x = self.R.gen()
-        octL = len(message)
-        b = self.generate_random_n(octL//3, octL//3, octL)
+        b = self.generate_random(self.dm, self.dm)
         m = self.mapping(self.encode(message))
         m_prime =  (m * b) % (x**self.N - 1)
         r_prime = ((m_prime * b) % (x**self.N - 1)) + h
         r = ((self.p * r_prime) * h) % (x**self.N - 1)
-        mask = mgf(r)
+        r_string = self.decode(self.inverse_mapping(self.group(r.list())))
+        mask = self.mgf(r_string)
         m = self.mod(m_prime + mask, p)
         secret = r + m
         return secret
