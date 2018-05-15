@@ -9,6 +9,7 @@ class NTRU:
     def __init__(self, level):
         self.q = 2048
         self.p = 3
+        self.len_b = 10
         if level == 0:
             self.N = 401
             self.d1 = 8
@@ -129,7 +130,43 @@ class NTRU:
         return secret
     
     
+    def last_cipher(self, message, h):
+        x = self.R.gen()
+        b = (os.urandom(self.len_b)) #random chars
+        salted_message = b + message
+        print salted_message
+        m_prime = self.mapping(self.encode(salted_message))
+        r_prime = ((m_prime * b) % (x ** self.N - 1)) + h
+        r = ((self.p * r_prime) * h) % (x ** self.N - 1)
+        r_list = r.list()
+        r_list.append(0)
+        print(len(r_list))
+        r_string = self.decode(self.inverse_mapping(self.group(r_list)))
+        mask = self.mgf(r_string, 20)
+        m = self.mod(m_prime + mask, self.p) # this might be recenter
+        print(m)
+        # ADD IF
+        secret = self.mod(r + m, self.q)
+        return secret
     
+    def last_decipher(self, secret):
+        x = self.R.gen()
+        a = self.recenter((secret * self.f) % (x ** self.N - 1), self.q)
+        m = self.recenter(a, self.p)
+        r = secret - m
+        r_list = r.list()
+        r_list.append(0)
+        print(len(r_list))
+        r_string = self.decode(self.inverse_mapping(self.group(r_list)))
+        mask = self.mgf(r_string, 20)
+        m_prime = self.mod(m - mask, self.p)
+        salted_message = self.decode(self.inverse_mapping(self.group(m_prime)))
+        b = salted_message[:self.len_b] # this might be shit
+        message = salted_message[self.len_b]
+        r_prime = ((m_prime * b) % (x ** self.N - 1)) + self.h
+        if ((self.p * r_prime) * self.h) % (x ** self.N - 1) == r: # and number of shit
+            return message
+   
     
     def decipher(self, secret):
         m = self.mod(secret * self.f, self.p)
@@ -138,10 +175,8 @@ class NTRU:
         r_list.append(0)
         r_string = self.decode(self.inverse_mapping(self.group(r_list)))
         mask = self.mgf(r_string, 20)
-        m_prime = m - mask
+        m_prime = self.mod(m - mask, self.p)
         
-        
-    
     
     def new_cipher(self, message, h):
         x = self.R.gen()
@@ -161,11 +196,12 @@ class NTRU:
                 print("here")
         return counter
     
+
+
     def new_decipher(self, secret):
         x = self.R.gen()
         a = self.recenter((secret * self.f) % (x ** self.N - 1), self.q)
         b = self.recenter(a, self.p)
-        #c = self.recenter((self.fp * b) % (x ** self.N - 1), self.p)
         message = self.decode(self.inverse_mapping(self.group(b.list())))
         return message
 
@@ -185,6 +221,8 @@ class NTRU:
             if coefs[i] > limit:
                 coefs[i] = int(coefs[i]) - num
         return self.R(coefs)
+
+
     
     def encode(self, message):
         bit_list = []
