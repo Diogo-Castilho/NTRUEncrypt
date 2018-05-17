@@ -1,6 +1,7 @@
 from sage.all import *
 import random
 import os
+import string
 from hashlib import sha256
 
 
@@ -61,23 +62,6 @@ class NTRU:
         random.shuffle(poly)
         return self.R(poly)
         
-    
-    def create_keys(self):
-        self.R = PolynomialRing(QQ, 'x')
-        x = self.R.gen()
-        gcd = 0
-        while gcd != 1:
-            self.f = self.generate_random(self.df - 1, self.df)
-            print(self.f)
-            self.g = self.generate_random(self.dg, self.dg)
-            print(self.g)
-            extended_gcd = xgcd(x**self.N -1, self.f)
-            gcd = extended_gcd[0]
-            u = extended_gcd[1]
-            v = extended_gcd[2]
-        self.fp = self.mod(v, self.p)
-        self.fq = self.mod(v, self.q)
-        self.h = self.recenter(self.mul(self.p * self.fq, self.g),self.q)
         
     def new_create_keys(self):
         self.R = PolynomialRing(QQ, 'x')
@@ -100,101 +84,121 @@ class NTRU:
         counter = 0
         hash = r_string
         while counter < iterations:
-            hash = sha256(hash.encode('ascii')).hexdigest()
+            hash = sha256(hash).digest()
             counter += 1
+       # print(hash)
         counter = 0
         poly_coefs = []
         while counter < self.N:
             poly_coefs.append(ord(hash[counter % len(hash)]))
             counter += 1
-        print(poly_coefs)
+        #print(poly_coefs)
         return self.R(poly_coefs)
         
-        
-    
-    def cipher(self, message, h):
+    def gen_random_string(self, size):
+        return ''.join(random.choice(string.ascii_letters + string.digits) for _ in range(size))
+
+    def new_cipher(self, message, h):
         x = self.R.gen()
-        b = self.generate_random(self.dm, self.dm)
-        m = self.mapping(self.encode(message))
-        m_prime =  (m * b) % (x**self.N - 1)
-        r_prime = ((m_prime * b) % (x**self.N - 1)) + h
-        r = ((self.p * r_prime) * h) % (x**self.N - 1)
-        r_list = r.list()
-        r_list.append(0)
-        print(len(r_list))
-        r_string = self.decode(self.inverse_mapping(self.group(r_list)))
-        mask = self.mgf(r_string, 20)
-        m = self.mod(m_prime + mask, self.p)
-        #secret = self.mod(r + m, self.q)
-        secret = self.mod(r + m, self.q)
+        random_pol = self.generate_random(self.dm - 1, self.dm)
+        message_poly = self.mapping(self.encode(message))
+        secret = h * random_pol
+        secret = secret % (x ** self.N - 1)
+        secret = self.mod(secret + message_poly, self.q)
+        
+        
+        test = h * random_pol
+        test = test % (x ** self.N - 1)
+        test = self.recenter((test * self.f) % (x ** self.N - 1), self.q)
+        test = self.recenter(test, self.p)
+        print("test")
+        print(test)
+        print(test.list())
         return secret
     
     
     def last_cipher(self, message, h):
         x = self.R.gen()
-        b = (os.urandom(self.len_b)) #random chars
+        b = self.gen_random_string(self.len_b)
+        
+        
         salted_message = b + message
-        print salted_message
+        
+        
         m_prime = self.mapping(self.encode(salted_message))
-        r_prime = ((m_prime * b) % (x ** self.N - 1)) + h
-        r = ((self.p * r_prime) * h) % (x ** self.N - 1)
-        r_list = r.list()
-        r_list.append(0)
-        print(len(r_list))
+        
+        
+        b_poly = self.mapping(self.encode(b))
+        
+        
+        r_prime = self.mod(((m_prime * b_poly) % (x ** self.N - 1)) + h, self.q)
+        
+        
+        r = (self.p * r_prime)
+        
+        r = self.recenter(r, 10)
+        r = h * r
+        
+        r = r % (x ** self.N - 1)
+        test = self.recenter((r * self.f) % (x ** self.N - 1), self.q)
+        test = self.recenter(test, self.p)
+        
+        print("Zie test")
+        print(test)
+        
+        
+        bla = self.mod(r, self.p)
+        
+        r_list = bla.list()
+        
+        if len(r_list) % 2 != 0:
+            r_list.append(0)
+        
         r_string = self.decode(self.inverse_mapping(self.group(r_list)))
+        
         mask = self.mgf(r_string, 20)
-        m = self.mod(m_prime + mask, self.p) # this might be recenter
+        print(mask)
+        
+        m = self.recenter(m_prime + mask, self.p)
+
+        print("M")
         print(m)
-        # ADD IF
+        
         secret = self.mod(r + m, self.q)
         return secret
+    
     
     def last_decipher(self, secret):
         x = self.R.gen()
         a = self.recenter((secret * self.f) % (x ** self.N - 1), self.q)
         m = self.recenter(a, self.p)
+        print("M")
+        print(m)
         r = secret - m
-        r_list = r.list()
-        r_list.append(0)
-        print(len(r_list))
+        print("R")
+        print(r)
+        r = self.recenter(r, self.p)
+        bla = self.mod(r, self.p)
+        r_list = bla.list()
+        if len(r_list) % 2 != 0:
+            r_list.append(0)
         r_string = self.decode(self.inverse_mapping(self.group(r_list)))
         mask = self.mgf(r_string, 20)
         m_prime = self.mod(m - mask, self.p)
-        salted_message = self.decode(self.inverse_mapping(self.group(m_prime)))
+        m_list = m_prime.list()
+        print("this is size")
+        print(len(m_list))
+        #m_list.append(0)
+        salted_message = self.decode(self.inverse_mapping(self.group(m_list)))
+        print(salted_message)
         b = salted_message[:self.len_b] # this might be shit
         message = salted_message[self.len_b]
         r_prime = ((m_prime * b) % (x ** self.N - 1)) + self.h
         if ((self.p * r_prime) * self.h) % (x ** self.N - 1) == r: # and number of shit
             return message
    
-    
-    def decipher(self, secret):
-        m = self.mod(secret * self.f, self.p)
-        r = secret - m
-        r_list = r.list()
-        r_list.append(0)
-        r_string = self.decode(self.inverse_mapping(self.group(r_list)))
-        mask = self.mgf(r_string, 20)
-        m_prime = self.mod(m - mask, self.p)
-        
-    
-    def new_cipher(self, message, h):
-        x = self.R.gen()
-        random_pol = self.generate_random(self.dm - 1, self.dm)
-        message_poly = self.mapping(self.encode(message))
-        secret = h * random_pol
-        secret = secret % (x**self.N - 1)
-        secret = self.mod(secret + message_poly, self.q)
-        return secret
-    
-    def count(self, message, number):
-        counter = 0
-        m_list = message.list()
-        for i in range(len(m_list)):
-            if number == m_list[i]:
-                counter += 1
-                print("here")
-        return counter
+ 
+   
     
 
 
@@ -205,7 +209,14 @@ class NTRU:
         message = self.decode(self.inverse_mapping(self.group(b.list())))
         return message
 
-        
+    def count(self, message, number):
+        counter = 0
+        m_list = message.list()
+        for i in range(len(m_list)):
+            if number == m_list[i]:
+                counter += 1
+                print("here")
+        return counter
         
     def mod(self, poly, num):
         coefs = poly.list()
