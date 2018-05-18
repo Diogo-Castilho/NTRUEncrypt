@@ -1,6 +1,5 @@
 from sage.all import *
 import random
-import os
 import string
 from hashlib import sha256
 
@@ -57,7 +56,7 @@ class NTRU:
         self.fq = self.mod(v, self.q)
         self.h = self.recenter((self.p * self.fq * self.g) % (x**self.N - 1), self.q)
     
-    def new_cipher(self, message, h):
+    def simple_cipher(self, message, h):
         x = self.R.gen()
         random_pol = self.generate_random(self.dm - 1, self.dm)
         message_poly = self.mapping(self.encode(message))
@@ -66,14 +65,15 @@ class NTRU:
         secret = self.mod(secret + message_poly, self.q)
         return secret
     
-    def new_decipher(self, secret):
+    def simple_decipher(self, secret):
         x = self.R.gen()
         a = self.recenter((secret * self.f) % (x ** self.N - 1), self.q)
         b = self.recenter(a, self.p)
         message = self.decode(self.inverse_mapping(self.group(b.list())))
+        print(message)
         return message
     
-    def last_cipher(self, message, h):
+    def cipher(self, message, h):
         x = self.R.gen()
         count_zero = 0
         count_minus = 0
@@ -81,10 +81,7 @@ class NTRU:
         while count_zero <= self.dm or count_minus <= self.dm or count_plus <= self.dm:
             b = self.gen_random_string(self.len_b)
             salted_message = b + message
-            print(salted_message)
             m_prime = self.mapping(self.encode(salted_message))
-            print("m_prime")
-            print(m_prime)
             b_poly = self.mapping(self.encode(b))
             r_prime = self.mod(((m_prime * b_poly) % (x ** self.N - 1)) + h, self.q)
             r = (self.p * r_prime)
@@ -92,60 +89,34 @@ class NTRU:
             r = h * r
             r = r % (x ** self.N - 1)
             r = self.mod(r, self.q)
-            test = self.recenter((r * self.f) % (x ** self.N - 1), self.q)
-            test = self.recenter(test, self.p)
-            print(test)
-            bla = self.mod(r, self.p)
-            r_list = bla.list()
-            print("R_LIST")
-            print(r_list)
+            r_mod = self.mod(r, self.p)
+            r_list = r_mod.list()
             if len(r_list) % 2 != 0:
                 r_list.append(0)
             r_string = self.decode(self.inverse_mapping(self.group(r_list)))
-            print("R_STRING")
-            print(r_string)
             mask = self.mgf(r_string, 20)
-            print("mask")
-            print(mask)
             m = self.recenter(m_prime + mask, self.p)
-            print("m")
-            print(m)
             count_zero = self.count(m, 0)
             count_minus = self.count(m, -1)
             count_plus = self.count(m, 1)
         #secret = self.mod(r + m, self.q)
         secret = r + m
-        print("R")
-        print(r)
         return secret
     
-    def last_decipher(self, secret):
+    def decipher(self, secret):
         x = self.R.gen()
         a = self.recenter((secret * self.f) % (x ** self.N - 1), self.q)
         m = self.recenter(a, self.p)
         r = secret - m
-        print("R")
-        print(r)
-        bla = self.mod(r, self.p)
-        r_list = bla.list()
-        print("R_LIST")
-        print(r_list)
+        r_mod = self.mod(r, self.p)
+        r_list = r_mod.list()
         if len(r_list) % 2 != 0:
             r_list.append(0)
         r_string = self.decode(self.inverse_mapping(self.group(r_list)))
-        print("R_STRING")
-        print(r_string)
         mask = self.mgf(r_string, 20)
-        print("m")
-        print(m)
-        print("mask")
-        print(mask)
         m_prime = self.recenter(m - mask, self.p)
-        print("M_PRIME")
-        print(m_prime)
         m_list = m_prime.list()
         if len(m_list) % 2 != 0:
-            print("m passou aqui")
             m_list.append(0)
         salted_message = self.decode(self.inverse_mapping(self.group(m_list)))
         b = salted_message[:self.len_b]
@@ -157,7 +128,6 @@ class NTRU:
         new_r = self.h * new_r
         new_r = new_r % (x ** self.N - 1)
         new_r = self.mod(new_r, self.q)
-        print(message)
         if new_r == r:
             print(message)
             return message
@@ -178,12 +148,6 @@ class NTRU:
     def gen_random_string(self, size):
         return ''.join(random.choice(string.ascii_letters + string.digits) for _ in range(size))
 
-    def generate_random_pol(self, lower, upper, N):
-        coefs = []
-        for i in range(N):
-            coefs.append(int(random() * (upper - lower + 1)) + lower)
-        return self.R(coefs)
-
     def generate_random(self, lower, upper):
         lower_array = [-1] * lower
         upper_array = [1] * upper
@@ -191,15 +155,6 @@ class NTRU:
         poly = lower_array + upper_array + zero_array
         random.shuffle(poly)
         return self.R(poly)
-
-    def generate_random_n(self, lower, upper, n):
-        lower_array = [-1] * lower
-        upper_array = [1] * upper
-        zero_array = [0] * (n - (lower + upper))
-        poly = lower_array + upper_array + zero_array
-        random.shuffle(poly)
-        return self.R(poly)
-   
     
     def count(self, message, number):
         counter = 0
