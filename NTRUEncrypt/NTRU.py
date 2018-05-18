@@ -40,30 +40,7 @@ class NTRU:
             self.dg = 247
             self.dm = 204
         
-    def generate_random_pol(self, lower, upper, N):
-        coefs = []
-        for i in range(N):
-            coefs.append(int(random() * (upper - lower + 1)) + lower)
-        return self.R(coefs)
-    
-    def generate_random(self, lower, upper):
-        lower_array = [-1] * lower
-        upper_array = [1] * upper
-        zero_array = [0] * (self.N - (lower + upper))
-        poly = lower_array + upper_array + zero_array
-        random.shuffle(poly)
-        return self.R(poly)
-    
-    def generate_random_n(self, lower, upper, n):
-        lower_array = [-1] * lower
-        upper_array = [1] * upper
-        zero_array = [0] * (n - (lower + upper))
-        poly = lower_array + upper_array + zero_array
-        random.shuffle(poly)
-        return self.R(poly)
-        
-        
-    def new_create_keys(self):
+    def create_keys(self):
         self.R = PolynomialRing(QQ, 'x')
         x = self.R.gen()
         gcd = 0
@@ -80,24 +57,6 @@ class NTRU:
         self.fq = self.mod(v, self.q)
         self.h = self.recenter((self.p * self.fq * self.g) % (x**self.N - 1), self.q)
     
-    def mgf(self, r_string, iterations):
-        counter = 0
-        hash = r_string
-        while counter < iterations:
-            hash = sha256(hash).digest()
-            counter += 1
-       # print(hash)
-        counter = 0
-        poly_coefs = []
-        while counter < self.N:
-            poly_coefs.append(ord(hash[counter % len(hash)]))
-            counter += 1
-        #print(poly_coefs)
-        return self.R(poly_coefs)
-        
-    def gen_random_string(self, size):
-        return ''.join(random.choice(string.ascii_letters + string.digits) for _ in range(size))
-
     def new_cipher(self, message, h):
         x = self.R.gen()
         random_pol = self.generate_random(self.dm - 1, self.dm)
@@ -105,17 +64,14 @@ class NTRU:
         secret = h * random_pol
         secret = secret % (x ** self.N - 1)
         secret = self.mod(secret + message_poly, self.q)
-        
-        
-        test = h * random_pol
-        test = test % (x ** self.N - 1)
-        test = self.recenter((test * self.f) % (x ** self.N - 1), self.q)
-        test = self.recenter(test, self.p)
-        print("test")
-        print(test)
-        print(test.list())
         return secret
     
+    def new_decipher(self, secret):
+        x = self.R.gen()
+        a = self.recenter((secret * self.f) % (x ** self.N - 1), self.q)
+        b = self.recenter(a, self.p)
+        message = self.decode(self.inverse_mapping(self.group(b.list())))
+        return message
     
     def last_cipher(self, message, h):
         x = self.R.gen()
@@ -127,6 +83,8 @@ class NTRU:
             salted_message = b + message
             print(salted_message)
             m_prime = self.mapping(self.encode(salted_message))
+            print("m_prime")
+            print(m_prime)
             b_poly = self.mapping(self.encode(b))
             r_prime = self.mod(((m_prime * b_poly) % (x ** self.N - 1)) + h, self.q)
             r = (self.p * r_prime)
@@ -139,32 +97,55 @@ class NTRU:
             print(test)
             bla = self.mod(r, self.p)
             r_list = bla.list()
+            print("R_LIST")
+            print(r_list)
             if len(r_list) % 2 != 0:
                 r_list.append(0)
             r_string = self.decode(self.inverse_mapping(self.group(r_list)))
+            print("R_STRING")
+            print(r_string)
             mask = self.mgf(r_string, 20)
+            print("mask")
+            print(mask)
             m = self.recenter(m_prime + mask, self.p)
+            print("m")
+            print(m)
             count_zero = self.count(m, 0)
             count_minus = self.count(m, -1)
             count_plus = self.count(m, 1)
-        secret = self.mod(r + m, self.q)
+        #secret = self.mod(r + m, self.q)
+        secret = r + m
+        print("R")
+        print(r)
         return secret
-    
     
     def last_decipher(self, secret):
         x = self.R.gen()
         a = self.recenter((secret * self.f) % (x ** self.N - 1), self.q)
         m = self.recenter(a, self.p)
         r = secret - m
+        print("R")
+        print(r)
         bla = self.mod(r, self.p)
         r_list = bla.list()
+        print("R_LIST")
+        print(r_list)
         if len(r_list) % 2 != 0:
             r_list.append(0)
         r_string = self.decode(self.inverse_mapping(self.group(r_list)))
+        print("R_STRING")
+        print(r_string)
         mask = self.mgf(r_string, 20)
+        print("m")
+        print(m)
+        print("mask")
+        print(mask)
         m_prime = self.recenter(m - mask, self.p)
+        print("M_PRIME")
+        print(m_prime)
         m_list = m_prime.list()
         if len(m_list) % 2 != 0:
+            print("m passou aqui")
             m_list.append(0)
         salted_message = self.decode(self.inverse_mapping(self.group(m_list)))
         b = salted_message[:self.len_b]
@@ -176,22 +157,50 @@ class NTRU:
         new_r = self.h * new_r
         new_r = new_r % (x ** self.N - 1)
         new_r = self.mod(new_r, self.q)
+        print(message)
         if new_r == r:
             print(message)
             return message
-   
- 
+
+    def mgf(self, r_string, iterations):
+        counter = 0
+        hashed = r_string
+        while counter < iterations:
+            hashed = sha256(hashed).digest()
+            counter += 1
+        counter = 0
+        poly_coefs = []
+        while counter < self.N:
+            poly_coefs.append(ord(hashed[counter % len(hashed)]))
+            counter += 1
+        return self.R(poly_coefs)
+
+    def gen_random_string(self, size):
+        return ''.join(random.choice(string.ascii_letters + string.digits) for _ in range(size))
+
+    def generate_random_pol(self, lower, upper, N):
+        coefs = []
+        for i in range(N):
+            coefs.append(int(random() * (upper - lower + 1)) + lower)
+        return self.R(coefs)
+
+    def generate_random(self, lower, upper):
+        lower_array = [-1] * lower
+        upper_array = [1] * upper
+        zero_array = [0] * (self.N - (lower + upper))
+        poly = lower_array + upper_array + zero_array
+        random.shuffle(poly)
+        return self.R(poly)
+
+    def generate_random_n(self, lower, upper, n):
+        lower_array = [-1] * lower
+        upper_array = [1] * upper
+        zero_array = [0] * (n - (lower + upper))
+        poly = lower_array + upper_array + zero_array
+        random.shuffle(poly)
+        return self.R(poly)
    
     
-
-
-    def new_decipher(self, secret):
-        x = self.R.gen()
-        a = self.recenter((secret * self.f) % (x ** self.N - 1), self.q)
-        b = self.recenter(a, self.p)
-        message = self.decode(self.inverse_mapping(self.group(b.list())))
-        return message
-
     def count(self, message, number):
         counter = 0
         m_list = message.list()
@@ -216,7 +225,6 @@ class NTRU:
         return self.R(coefs)
 
 
-    
     def encode(self, message):
         bit_list = []
         for char in message:
