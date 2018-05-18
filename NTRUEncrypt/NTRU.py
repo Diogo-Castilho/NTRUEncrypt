@@ -120,50 +120,25 @@ class NTRU:
     def last_cipher(self, message, h):
         x = self.R.gen()
         b = self.gen_random_string(self.len_b)
-        
-        
         salted_message = b + message
-        
-        
+        print(salted_message)
         m_prime = self.mapping(self.encode(salted_message))
-        
-        
         b_poly = self.mapping(self.encode(b))
-        
-        
         r_prime = self.mod(((m_prime * b_poly) % (x ** self.N - 1)) + h, self.q)
-        
-        
         r = (self.p * r_prime)
-        
         r = self.recenter(r, 10)
         r = h * r
-        
         r = r % (x ** self.N - 1)
+        r = self.mod(r, self.q)
         test = self.recenter((r * self.f) % (x ** self.N - 1), self.q)
         test = self.recenter(test, self.p)
-        
-        print("Zie test")
-        print(test)
-        
-        
         bla = self.mod(r, self.p)
-        
         r_list = bla.list()
-        
         if len(r_list) % 2 != 0:
             r_list.append(0)
-        
         r_string = self.decode(self.inverse_mapping(self.group(r_list)))
-        
         mask = self.mgf(r_string, 20)
-        print(mask)
-        
         m = self.recenter(m_prime + mask, self.p)
-
-        print("M")
-        print(m)
-        
         secret = self.mod(r + m, self.q)
         return secret
     
@@ -183,12 +158,15 @@ class NTRU:
         if len(r_list) % 2 != 0:
             r_list.append(0)
         r_string = self.decode(self.inverse_mapping(self.group(r_list)))
+    
         mask = self.mgf(r_string, 20)
         m_prime = self.mod(m - mask, self.p)
         m_list = m_prime.list()
         print("this is size")
         print(len(m_list))
         #m_list.append(0)
+        if len(m_list) % 2 != 0:
+            m_list.append(0)
         salted_message = self.decode(self.inverse_mapping(self.group(m_list)))
         print(salted_message)
         b = salted_message[:self.len_b] # this might be shit
