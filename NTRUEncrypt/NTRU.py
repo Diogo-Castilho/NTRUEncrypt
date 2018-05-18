@@ -119,26 +119,34 @@ class NTRU:
     
     def last_cipher(self, message, h):
         x = self.R.gen()
-        b = self.gen_random_string(self.len_b)
-        salted_message = b + message
-        print(salted_message)
-        m_prime = self.mapping(self.encode(salted_message))
-        b_poly = self.mapping(self.encode(b))
-        r_prime = self.mod(((m_prime * b_poly) % (x ** self.N - 1)) + h, self.q)
-        r = (self.p * r_prime)
-        r = self.recenter(r, 10)
-        r = h * r
-        r = r % (x ** self.N - 1)
-        r = self.mod(r, self.q)
-        test = self.recenter((r * self.f) % (x ** self.N - 1), self.q)
-        test = self.recenter(test, self.p)
-        bla = self.mod(r, self.p)
-        r_list = bla.list()
-        if len(r_list) % 2 != 0:
-            r_list.append(0)
-        r_string = self.decode(self.inverse_mapping(self.group(r_list)))
-        mask = self.mgf(r_string, 20)
-        m = self.recenter(m_prime + mask, self.p)
+        count_zero = 0
+        count_minus = 0
+        count_plus = 0
+        while count_zero <= self.dm or count_minus <= self.dm or count_plus <= self.dm:
+            b = self.gen_random_string(self.len_b)
+            salted_message = b + message
+            print(salted_message)
+            m_prime = self.mapping(self.encode(salted_message))
+            b_poly = self.mapping(self.encode(b))
+            r_prime = self.mod(((m_prime * b_poly) % (x ** self.N - 1)) + h, self.q)
+            r = (self.p * r_prime)
+            r = self.recenter(r, 10)
+            r = h * r
+            r = r % (x ** self.N - 1)
+            r = self.mod(r, self.q)
+            test = self.recenter((r * self.f) % (x ** self.N - 1), self.q)
+            test = self.recenter(test, self.p)
+            print(test)
+            bla = self.mod(r, self.p)
+            r_list = bla.list()
+            if len(r_list) % 2 != 0:
+                r_list.append(0)
+            r_string = self.decode(self.inverse_mapping(self.group(r_list)))
+            mask = self.mgf(r_string, 20)
+            m = self.recenter(m_prime + mask, self.p)
+            count_zero = self.count(m, 0)
+            count_minus = self.count(m, -1)
+            count_plus = self.count(m, 1)
         secret = self.mod(r + m, self.q)
         return secret
     
@@ -147,32 +155,29 @@ class NTRU:
         x = self.R.gen()
         a = self.recenter((secret * self.f) % (x ** self.N - 1), self.q)
         m = self.recenter(a, self.p)
-        print("M")
-        print(m)
         r = secret - m
-        print("R")
-        print(r)
-        r = self.recenter(r, self.p)
         bla = self.mod(r, self.p)
         r_list = bla.list()
         if len(r_list) % 2 != 0:
             r_list.append(0)
         r_string = self.decode(self.inverse_mapping(self.group(r_list)))
-    
         mask = self.mgf(r_string, 20)
-        m_prime = self.mod(m - mask, self.p)
+        m_prime = self.recenter(m - mask, self.p)
         m_list = m_prime.list()
-        print("this is size")
-        print(len(m_list))
-        #m_list.append(0)
         if len(m_list) % 2 != 0:
             m_list.append(0)
         salted_message = self.decode(self.inverse_mapping(self.group(m_list)))
-        print(salted_message)
-        b = salted_message[:self.len_b] # this might be shit
-        message = salted_message[self.len_b]
-        r_prime = ((m_prime * b) % (x ** self.N - 1)) + self.h
-        if ((self.p * r_prime) * self.h) % (x ** self.N - 1) == r: # and number of shit
+        b = salted_message[:self.len_b]
+        b_poly = self.mapping(self.encode(b))
+        message = salted_message[self.len_b:]
+        r_prime = self.mod(((m_prime * b_poly) % (x ** self.N - 1)) + self.h, self.q)
+        new_r = (self.p * r_prime)
+        new_r = self.recenter(new_r, 10)
+        new_r = self.h * new_r
+        new_r = new_r % (x ** self.N - 1)
+        new_r = self.mod(new_r, self.q)
+        if new_r == r:
+            print(message)
             return message
    
  
@@ -193,7 +198,6 @@ class NTRU:
         for i in range(len(m_list)):
             if number == m_list[i]:
                 counter += 1
-                print("here")
         return counter
         
     def mod(self, poly, num):
