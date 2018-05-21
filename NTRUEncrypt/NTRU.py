@@ -99,7 +99,6 @@ class NTRU:
             count_zero = self.count(m, 0)
             count_minus = self.count(m, -1)
             count_plus = self.count(m, 1)
-        #secret = self.mod(r + m, self.q)
         secret = r + m
         return secret
     
